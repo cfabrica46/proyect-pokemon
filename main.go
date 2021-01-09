@@ -13,6 +13,22 @@ type usuario struct {
 	id       int
 	username string
 	password string
+	pokemons []pokemon
+}
+
+type pokemon struct {
+	id      int
+	name    string
+	tipo    string
+	level   int
+	ataques []ataque
+}
+
+type ataque struct {
+	id       int
+	name     string
+	power    int
+	accuracy int
 }
 
 func main() {
@@ -101,7 +117,7 @@ func mostrarPokes(databases *sql.DB, user usuario) {
 
 	fmt.Println("Esta es tu lista de pokemons")
 
-	rows1, err := databases.Query("SELECT  pokemons.id,pokemons.name,pokemons.type,pokemons.level,attacks.name,attacks.power,attacks.accuracy FROM users_pokemons INNER JOIN users ON users_pokemons.user_id = users.id INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id INNER JOIN pokemons_attacks ON users_pokemons.poke_id = pokemons_attacks.poke_id INNER JOIN attacks ON pokemons_attacks.attack_id = attacks.id WHERE users.id = ?", user.id)
+	rows1, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN users ON users_pokemons.user_id = users.id INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users.id = ?", user.id)
 
 	if err != nil {
 		log.Fatal(err)
@@ -109,28 +125,48 @@ func mostrarPokes(databases *sql.DB, user usuario) {
 
 	defer rows1.Close()
 
-	var pokeName, tipo, attackName string
-	var pokeid, level, power, accuracy int
-
 	for rows1.Next() {
 
-		err = rows1.Scan(&pokeid, &pokeName, &tipo, &level, &attackName, &power, &accuracy)
+		var newPokemon pokemon
+
+		err = rows1.Scan(&newPokemon.id, &newPokemon.name, &newPokemon.tipo, &newPokemon.level)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		column, err := rows1.ColumnTypes()
+		user.pokemons = append(user.pokemons, newPokemon)
+
+		fmt.Printf("%v -> %v\t", "id", newPokemon.id)
+		fmt.Printf("%v -> %v\t", "name", newPokemon.name)
+		fmt.Printf("%v -> %v\t", "type", newPokemon.tipo)
+		fmt.Printf("%v -> %v\t", "level", newPokemon.level)
+
+		rows2, err := databases.Query("SELECT DISTINCT attacks.id,attacks.name,attacks.power,attacks.accuracy FROM pokemons_attacks INNER JOIN attacks ON pokemons_attacks.attack_id=attacks.id WHERE pokemons_attacks.poke_id=?", newPokemon.id)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		campos := []interface{}{pokeid, pokeName, tipo, attackName, level, power, accuracy}
+		defer rows2.Close()
 
-		for i := range column {
-			fmt.Printf("%v -> %v\t", column[i].Name(), campos[i])
+		for rows2.Next() {
+
+			var newAttack ataque
+
+			err = rows2.Scan(&newAttack.id, &newAttack.name, &newAttack.power, &newAttack.accuracy)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Printf("%v -> %v\t", "Attack Name", newAttack.name)
+			fmt.Printf("%v -> %v\t", "Attack Type", newAttack.power)
+			fmt.Printf("%v -> %v\t", "Attack Level", newAttack.accuracy)
+
 		}
+
 		fmt.Println()
 	}
+
 }
