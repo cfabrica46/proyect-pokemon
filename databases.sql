@@ -1,45 +1,49 @@
-CREATE TABLE users(
+CREATE TABLE IF NOT EXISTS users(
     id INTEGER PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL
 );
 
 
-CREATE TABLE pokemons (
+CREATE TABLE IF NOT EXISTS pokemons (
     id INTEGER PRIMARY KEY, 
     name TEXT NOT NULL,
     type TEXT NOT NULL, 
     level INTEGER NOT NULL 
 );
 
-CREATE TABLE attacks (
+CREATE TABLE IF NOT EXISTS attacks (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     power  INTEGER NOT NULL,
     accuracy INTEGER NOT NULL
 );
 
-CREATE TABLE users_pokemons (
+CREATE TABLE IF NOT EXISTS users_pokemons (
     user_id INTEGER NOT NULL, 
     poke_id INTEGER NOT NULL UNIQUE,
     
     FOREIGN KEY (user_id)
-        REFERENCES users (id),
+        REFERENCES users (id)
+            ON UPDATE CASCADE,
 
     FOREIGN KEY(poke_id)
         REFERENCES pokemons(id)
+            ON UPDATE CASCADE
 );
 
 
-CREATE TABLE pokemons_attacks (
+CREATE TABLE IF NOT EXISTS pokemons_attacks (
     poke_id INTEGER NOT NULL ,
     attack_id INTEGER NOT NULL,
     
     FOREIGN KEY(poke_id)
-        REFERENCES pokemons(id),
+        REFERENCES pokemons(id)
+            ON UPDATE CASCADE,
         
     FOREIGN KEY (attack_id)
         REFERENCES attacks (id)
+           ON UPDATE CASCADE
 
 );
 

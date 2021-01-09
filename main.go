@@ -36,9 +36,11 @@ func main() {
 	log.SetFlags(log.Llongfile)
 
 	var ingreso, usernameScan, passwordScan string
+	var eleccionMenu int
+	var salir bool
 	var user usuario
 
-	databases, err := sql.Open("sqlite3", "./databases.db")
+	databases, err := sql.Open("sqlite3", "./databases.db?_foreign_keys=on")
 
 	if err != nil {
 		log.Fatal(err)
@@ -85,8 +87,35 @@ func main() {
 
 		fmt.Printf("Bienvenido %v tu ID es: %v\n", user.username, user.id)
 
-		mostrarPokes(databases, user)
+		for salir == false {
+			fmt.Println("¿Qué Desea Hacer?")
+			fmt.Println("1.	Jugar")
+			fmt.Println("2.	Ver tus Pokemones")
+			fmt.Println("3. 	Añadir un Pokemon")
+			fmt.Println("4.	Liberar un Pokemon")
+			fmt.Println("5.	Eliminar tu cuenta")
+			fmt.Println("0.	Salir")
 
+			fmt.Scan(&eleccionMenu)
+
+			switch eleccionMenu {
+			case 1:
+				fmt.Println("juga")
+			case 2:
+				mostrarPokes(databases, user)
+			case 3:
+				fmt.Println("otro uwu")
+			case 4:
+				fmt.Println("liberar :v")
+			case 5:
+				eliminarCuenta(databases, user, &salir)
+
+			case 0:
+				return
+			default:
+				fmt.Println("Opcion invalida")
+			}
+		}
 	case "r":
 
 		fmt.Println("Ingrese su username")
@@ -168,5 +197,55 @@ func mostrarPokes(databases *sql.DB, user usuario) {
 
 		fmt.Println()
 	}
+
+}
+
+func eliminarCuenta(databases *sql.DB, user usuario, salir *bool) {
+	for {
+		var preguntaSeguridad1, preguntaSeguridad2 string
+
+		fmt.Println("¿Esta seguro de eliminar su cuenta? [S/N]")
+		fmt.Scan(&preguntaSeguridad1)
+
+		preguntaSeguridad1 = strings.ToLower(preguntaSeguridad1)
+
+		switch preguntaSeguridad1 {
+		case "s":
+			fmt.Println("Introduzca su password")
+			fmt.Scan(&preguntaSeguridad2)
+
+			if preguntaSeguridad2 == user.password {
+
+				stmtDelete, err := databases.Prepare("DELETE FROM users where id = ?")
+
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				_, err = stmtDelete.Exec(user.id)
+
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				fmt.Println("Hasta Pronto :'D")
+				*salir = true
+				return
+
+			} else {
+
+				log.Fatal("Error: password invalido")
+
+			}
+		case "n":
+			return
+
+		default:
+			fmt.Println("Opncion invalida")
+		}
+	}
+}
+
+func liberarPokemon() {
 
 }
