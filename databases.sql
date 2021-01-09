@@ -1,13 +1,7 @@
-.mode column
-.header ON
-
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE users(
     id INTEGER PRIMARY KEY,
-    username TEXT NOT NULL,
-    password TEXT NOT NULL,
-    age INTEGER NOT NULL
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL
 );
 
 
@@ -49,12 +43,12 @@ CREATE TABLE pokemons_attacks (
 
 );
 
-INSERT INTO users (username,password,age) 
+INSERT INTO users (username,password) 
     VALUES
-        ('cesar','cfabrica46',16),
-        ('arturo','01234',20),
-        ('sebas','sinmanos',16),
-        ('raiza','rai',9);
+        ('cesar','cfabrica46'),
+        ('arturo','01234'),
+        ('sebas','sinmanos'),
+        ('raiza','rai');
 
 INSERT INTO pokemons (name,type,level) 
     VALUES 
