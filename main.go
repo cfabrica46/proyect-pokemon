@@ -211,8 +211,8 @@ func mostrarPokes(databases *sql.DB, user usuario) {
 			}
 
 			fmt.Printf("%v -> %v\t", "Attack Name", newAttack.name)
-			fmt.Printf("%v -> %v\t", "Attack Type", newAttack.power)
-			fmt.Printf("%v -> %v\t", "Attack Level", newAttack.accuracy)
+			fmt.Printf("%v -> %v\t", "Attack Power", newAttack.power)
+			fmt.Printf("%v -> %v\t", "Attack Accuracy", newAttack.accuracy)
 
 		}
 
