@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users(
 CREATE TABLE IF NOT EXISTS pokemons (
     id INTEGER PRIMARY KEY, 
     name TEXT NOT NULL,
+    life INTEGER NOT NULL,
     type TEXT NOT NULL, 
     level INTEGER NOT NULL 
 );
@@ -24,12 +25,10 @@ CREATE TABLE IF NOT EXISTS users_pokemons (
     poke_id INTEGER NOT NULL UNIQUE,
     
     FOREIGN KEY (user_id)
-        REFERENCES users (id)
-            ON UPDATE CASCADE,
+        REFERENCES users (id),
 
     FOREIGN KEY(poke_id)
         REFERENCES pokemons(id)
-            ON UPDATE CASCADE
 );
 
 
@@ -38,13 +37,10 @@ CREATE TABLE IF NOT EXISTS pokemons_attacks (
     attack_id INTEGER NOT NULL,
     
     FOREIGN KEY(poke_id)
-        REFERENCES pokemons(id)
-            ON UPDATE CASCADE,
+        REFERENCES pokemons(id),
         
     FOREIGN KEY (attack_id)
         REFERENCES attacks (id)
-           ON UPDATE CASCADE
-
 );
 
 INSERT INTO users (username,password) 
@@ -54,17 +50,17 @@ INSERT INTO users (username,password)
         ('sebas','sinmanos'),
         ('raiza','rai');
 
-INSERT INTO pokemons (name,type,level) 
+INSERT INTO pokemons (name,life,type,level) 
     VALUES 
-        ('pikachu','electric',32),
-        ('pikachu','electric',50),
-        ('charizard','fire',64),
-        ('seal','water',64),
-        ('electabuzz','electric',12),
-        ('charmander','fire',22),
-        ('flareon','fire',8),
-        ('mewtwo','psychic',100),
-        ('mew','psychic',100);
+        ('pikachu',200,'electric',32),
+        ('pikachu',200,'electric',50),
+        ('charizard',300,'fire',64),
+        ('seal','water',250,64),
+        ('electabuzz',260,'electric',12),
+        ('charmander',150,'fire',22),
+        ('flareon',250,'fire',8),
+        ('mewtwo',500,'psychic',100),
+        ('mew',500,'psychic',100);
 
 INSERT INTO attacks (name,power,accuracy)
     VALUES
