@@ -268,6 +268,7 @@ func eliminarCuenta(databases *sql.DB, user usuario, salir *bool) {
 
 func liberarPokemon(databases *sql.DB, user usuario) {
 
+	var sliceAux []int
 	var pokeEliminar, idAux int
 
 	mostrarPokes(databases, user)
@@ -292,24 +293,28 @@ func liberarPokemon(databases *sql.DB, user usuario) {
 			log.Fatal(err)
 		}
 
-		stmtDelete, err := databases.Prepare("DELETE FROM users_pokemons where users_pokemons.poke_id = ?")
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		_, err = stmtDelete.Exec(idAux)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Println("Hasta Pronto Amiguito :'D")
-		return
+		sliceAux = append(sliceAux, idAux)
 
 	}
+
 	if idAux == 0 {
 		fmt.Println("id no valido")
+	}
+
+	for i := range sliceAux {
+
+		stmtDelete, err := databases.Prepare("DELETE FROM users_pokemons WHERE users_pokemons.poke_id = ?;")
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		_, err = stmtDelete.Exec(sliceAux[i])
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
 	}
 }
 
@@ -347,6 +352,7 @@ func migracion() {
 func añadirPoke(databases *sql.DB, user usuario) {
 
 	var eleccionPoke, idAux, idAttack int
+	var sliceAux []int
 	var newPokemon pokemon
 
 	fmt.Println("¿Que pokemon Deseas?")
@@ -378,7 +384,7 @@ func añadirPoke(databases *sql.DB, user usuario) {
 		fmt.Println()
 	}
 
-	idAux = newPokemon.id
+	idAux = newPokemon.id + 1
 
 	fmt.Scan(&eleccionPoke)
 
@@ -394,7 +400,7 @@ func añadirPoke(databases *sql.DB, user usuario) {
 
 	}
 
-	stmtPoke, err := databases.Prepare("INSERT INTO pokemons(name,type,level) VALUES (?,?,?)")
+	stmtPoke, err := databases.Prepare("INSERT INTO pokemons(name,life,type,level) VALUES (?,?,?,?)")
 
 	if err != nil {
 		log.Fatal(err)
@@ -412,7 +418,7 @@ func añadirPoke(databases *sql.DB, user usuario) {
 		log.Fatal(err)
 	}
 
-	_, err = stmt.Exec(user.id, idAux+1)
+	_, err = stmt.Exec(user.id, idAux)
 
 	if err != nil {
 		log.Fatal(err)
@@ -428,13 +434,23 @@ func añadirPoke(databases *sql.DB, user usuario) {
 
 		rowsAttack.Scan(&idAttack)
 
+		sliceAux = append(sliceAux, idAttack)
+
+	}
+
+	for i := range sliceAux {
+
 		stmtAttack, err := databases.Prepare("INSERT INTO pokemons_attacks (poke_id,attack_id) VALUES (?,?)")
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		stmtAttack.Exec(idAux, idAttack)
+		_, err = stmtAttack.Exec(idAux, sliceAux[i])
+
+		if err != nil {
+			log.Fatal(err)
+		}
 
 	}
 
