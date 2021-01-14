@@ -1,6 +1,8 @@
 package main
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -8,6 +10,10 @@ import (
 	"github.com/cfabrica46/proyecto-pokemon/pokedatabases"
 
 	_ "github.com/mattn/go-sqlite3"
+)
+
+var (
+	errUsernamePasswordIncorrect = errors.New("Username y/o Password incorrectos")
 )
 
 func main() {
@@ -42,23 +48,29 @@ func main() {
 		user, err := pokedatabases.GetUser(databases, usernameScan, passwordScan)
 
 		if err != nil {
+			if err == sql.ErrNoRows {
+				if user == nil {
+					log.Fatal(errUsernamePasswordIncorrect)
+				}
+				log.Fatal(err)
+			}
 			log.Fatal(err)
 		}
 
-		err = funcIngreso(databases, user)
+		err = ingresar(databases, *user)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
 	case "r":
-		user, err := funcRegistro(databases)
+		user, err := registrar(databases)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = funcIngreso(databases, user)
+		err = ingresar(databases, *user)
 
 		if err != nil {
 			log.Fatal(err)
