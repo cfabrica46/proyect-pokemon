@@ -1,59 +1,21 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"strings"
 
-	"github.com/cfabrica46/proyecto-pokemon/open"
 	"github.com/cfabrica46/proyecto-pokemon/pokedatabases"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var (
-	errUserExist       = errors.New("El username que usted escogió ya esta en uso")
-	errPasswordInvalid = errors.New("Password Invalido")
-	errNotPokemons     = errors.New("No tiene pokemons para acceder")
-	errIncorrectID     = errors.New("ID seleccionada Incorrecta")
-)
-
-const (
-	allUserPokemons = iota
-	onlyPokeFromUser
-	onlyPokeFromRival
-	allPokemons
-)
-
-type usuario struct {
-	id       int
-	username string
-	password string
-	pokemons []pokemon
-}
-
-type pokemon struct {
-	id      int
-	name    string
-	life    int
-	tipo    string
-	level   int
-	ataques []ataque
-}
-
-type ataque struct {
-	id       int
-	name     string
-	power    int
-	accuracy int
-}
-
 func main() {
 
+	log.SetFlags(log.Llongfile)
 	var usernameScan, passwordScan, ingreso string
 
-	databases, err := open.Open()
+	databases, err := pokedatabases.Open()
 
 	if err != nil {
 		log.Fatal(err)
@@ -83,20 +45,20 @@ func main() {
 			log.Fatal(err)
 		}
 
-		err = pokedatabases.FuncIngreso(databases, *user)
+		err = funcIngreso(databases, user)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
 	case "r":
-		user, err := pokedatabases.FuncRegistro(databases)
+		user, err := funcRegistro(databases)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = pokedatabases.FuncIngreso(databases, *user)
+		err = funcIngreso(databases, user)
 
 		if err != nil {
 			log.Fatal(err)

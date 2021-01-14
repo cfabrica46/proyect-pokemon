@@ -3,124 +3,158 @@ package pokedatabases
 import (
 	"database/sql"
 	"errors"
-	"fmt"
-	"log"
-	"math/rand"
-	"strings"
-	"time"
+	"io/ioutil"
+	"os"
 
-	"github.com/cfabrica46/proyecto-pokemon/selectpoke"
+	//Exporatado para Open
+	_ "github.com/mattn/go-sqlite3"
+)
+
+type flag int
+
+//Parte fundamental de la funcion SeleccionarPokemons
+const (
+	AllUserPokemons flag = iota
+	OnlyPokeFromUser
+	OnlyPokeFromRival
+	AllPokemons
 )
 
 //Estos errores seran utilizados a lo largo del paquete
 var (
+	ErrNotPokemons     = errors.New("No tiene pokemons para acceder")
+	ErrIncorrectID     = errors.New("ID seleccionada Incorrecta")
 	ErrUserExist       = errors.New("El username que usted escogió ya esta en uso")
 	ErrPasswordInvalid = errors.New("Password Invalido")
 )
 
-//FuncIngreso posee el menu
-func FuncIngreso(databases *sql.DB, user selectpoke.User) (err error) {
+//User representa los datos de la tabla users de databases.db
+type User struct {
+	ID       int
+	Username string
+	Password string
+	Pokemons []Pokemon
+}
 
-	var eleccionMenu int
-	var salir bool
+//Pokemon representa los datos de la tabla pokemons de databases.db
+type Pokemon struct {
+	ID      int
+	Name    string
+	Life    int
+	Tipo    string
+	Level   int
+	Ataques []Attack
+}
 
-	fmt.Printf("Bienvenido %v tu ID es: %v\n", user.Username, user.ID)
+//Attack representa los datos de la tabla attacks de databases.db
+type Attack struct {
+	ID       int
+	Name     string
+	Power    int
+	Accuracy int
+}
 
-	for salir == false {
-		fmt.Println("¿Qué Desea Hacer?")
-		fmt.Println("1.	Jugar")
-		fmt.Println("2.	Ver tus Pokemones")
-		fmt.Println("3. 	Añadir un Pokemon")
-		fmt.Println("4.	Liberar un Pokemon")
-		fmt.Println("5.	Eliminar tu cuenta")
-		fmt.Println("0.	Salir")
+//Migracion es una funcion complementaria de Open
+//Al ejecutarla se migraran los datos del archivo .sql a un archivo .db
+func Migracion() (databases *sql.DB, err error) {
+	archivoDB, err := os.Create("databases.db")
 
-		fmt.Scan(&eleccionMenu)
-
-		switch eleccionMenu {
-		case 1:
-			Jugar(databases, user)
-		case 2:
-			pokes, err := selectpoke.SeleccionarPokemons(databases, selectpoke.AllUserPokemons, user.ID, 0)
-
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-
-			selectpoke.ImprimirPokemons(pokes)
-		case 3:
-			err := AñadirPoke(databases, user)
-
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-		case 4:
-			err := LiberarPokemon(databases, user)
-
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-		case 5:
-			err := EliminarCuenta(databases, user, &salir)
-
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-		case 0:
-			return
-		default:
-			fmt.Println("Opcion invalida")
-		}
+	if err != nil {
+		return
 	}
+	archivoDB.Close()
+
+	databases, err = sql.Open("sqlite3", "./databases.db?_foreign_keys=on")
+
+	if err != nil {
+		return
+	}
+
+	archivoSQL, err := os.Open("databases.sql")
+
+	if err != nil {
+		return
+	}
+
+	defer archivoSQL.Close()
+
+	contendio, err := ioutil.ReadAll(archivoSQL)
+
+	if err != nil {
+		return
+	}
+
+	_, err = databases.Exec(string(contendio))
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+//Open Abrira el archivo .db o en su defecto ejecutara Migracion
+func Open() (databases *sql.DB, err error) {
+
+	archivo, err := os.Open("databases.db")
+
+	if err != nil {
+		if os.IsNotExist(err) {
+
+			databases, err := Migracion()
+
+			if err != nil {
+				return databases, err
+			}
+
+			return databases, err
+		}
+		return
+	}
+	defer archivo.Close()
+
+	databases, err = sql.Open("sqlite3", "./databases.db?_foreign_keys=on")
+
+	if err != nil {
+		return
+	}
+
 	return
 }
 
 //GetUser vericara si existe un user registrado con los parametros predefinidos
-func GetUser(databases *sql.DB, usernameScan, passwordScan string) (user *selectpoke.User, err error) {
-
-	var userAux selectpoke.User
+func GetUser(databases *sql.DB, usernameScan, passwordScan string) (user User, err error) {
 
 	row := databases.QueryRow("SELECT id,username,password FROM users WHERE username = ? AND password = ?", usernameScan, passwordScan)
 
-	err = row.Scan(&userAux.ID, &userAux.Username, &userAux.Password)
-
-	if err != nil {
-		return
-	}
-
-	user = &userAux
-
-	return
-
-}
-
-//FuncRegistro registra usuarios
-func FuncRegistro(databases *sql.DB) (user *selectpoke.User, err error) {
-
-	var usernameScan, passwordScan string
-
-	fmt.Println("Ingrese su username")
-	fmt.Scan(&usernameScan)
-	fmt.Println("Ingrese su password")
-	fmt.Scan(&passwordScan)
-
-	err = CheckRegistro(databases, usernameScan, passwordScan)
-
-	if err != nil {
-		return
-	}
-
-	user, err = GetUser(databases, usernameScan, passwordScan)
+	err = row.Scan(&user.ID, &user.Username, &user.Password)
 
 	if err != nil {
 		return
 	}
 
 	return
+
 }
 
 //CheckRegistro verifica si ya existe un usuario registrado con el mismo username
 func CheckRegistro(databases *sql.DB, usernameScan, passwordScan string) (err error) {
+
+	var id int
+
+	row := databases.QueryRow("SELECT id FROM users WHERE username = ? ", usernameScan, passwordScan)
+
+	err = row.Scan(&id)
+
+	if err == nil {
+		err = ErrUserExist
+		return
+	}
+	err = nil
+	return
+}
+
+//InsertRegistro inserta a la base de datos el nuevo usuario
+func InsertRegistro(databases *sql.DB, usernameScan, passwordScan string) (err error) {
 
 	stmt, err := databases.Prepare("INSERT INTO users(username, password) VALUES(?,?)")
 
@@ -130,65 +164,169 @@ func CheckRegistro(databases *sql.DB, usernameScan, passwordScan string) (err er
 	_, err = stmt.Exec(usernameScan, passwordScan)
 
 	if err != nil {
-		err = ErrUserExist
+
 		return
 	}
-
-	fmt.Println("nuevo usuario", usernameScan)
 
 	return
 }
 
-//AñadirPoke añade pokemones a la databases
-func AñadirPoke(databases *sql.DB, user selectpoke.User) (err error) {
+//SeleccionarPokemons Selecciona los pokemons deseados
+func SeleccionarPokemons(databases *sql.DB, flag flag, idUser, idPoke int) (pokes []Pokemon, err error) {
 
-	var eleccionPoke, idAux int
+	var check bool
 
-	fmt.Println("¿Que pokemon Deseas?")
+	switch flag {
+	case AllUserPokemons:
 
-	allPokes, err := selectpoke.SeleccionarPokemons(databases, selectpoke.AllPokemons, 0, 0)
+		rows, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN users ON users_pokemons.user_id = users.id INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users.id = ?", idUser)
+
+		if err != nil {
+			return pokes, err
+		}
+
+		defer rows.Close()
+
+		for rows.Next() {
+			var newPokemon Pokemon
+
+			err = rows.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+
+			if err != nil {
+				return pokes, err
+			}
+
+			err = SeleccionAtaques(databases, &newPokemon)
+
+			if err != nil {
+				return pokes, err
+			}
+
+			pokes = append(pokes, newPokemon)
+
+			check = true
+
+		}
+
+		if check == false {
+			err = ErrNotPokemons
+			return pokes, err
+		}
+
+	case OnlyPokeFromUser:
+
+		var newPokemon Pokemon
+
+		row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users_pokemons.poke_id = ? AND users_pokemons.user_id = ?", idPoke, idUser)
+
+		if err != nil {
+			return
+		}
+
+		err = row.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+
+		if err != nil {
+			err = ErrIncorrectID
+			return
+		}
+
+		err = SeleccionAtaques(databases, &newPokemon)
+
+		if err != nil {
+			return
+		}
+
+		pokes = append(pokes, newPokemon)
+
+	case OnlyPokeFromRival:
+
+		var newPokemon Pokemon
+
+		row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users_pokemons.poke_id = ?", idPoke)
+
+		if err != nil {
+			return
+		}
+
+		err = row.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+
+		if err != nil {
+			return
+		}
+
+		err = SeleccionAtaques(databases, &newPokemon)
+
+		if err != nil {
+			return
+		}
+
+		pokes = append(pokes, newPokemon)
+
+	case AllPokemons:
+
+		rows, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM pokemons")
+
+		if err != nil {
+			return pokes, err
+		}
+
+		defer rows.Close()
+
+		for rows.Next() {
+			var newPokemon Pokemon
+
+			err = rows.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+
+			if err != nil {
+				return pokes, err
+			}
+
+			err = SeleccionAtaques(databases, &newPokemon)
+
+			if err != nil {
+				return pokes, err
+			}
+
+			pokes = append(pokes, newPokemon)
+
+			check = true
+
+		}
+
+	}
+
+	return
+}
+
+//SeleccionAtaques complementa a SelecionarPokemons dandole los ataques
+func SeleccionAtaques(databases *sql.DB, newPokemon *Pokemon) (err error) {
+
+	rows, err := databases.Query("SELECT DISTINCT attacks.id,attacks.name,attacks.power,attacks.accuracy FROM pokemons_attacks INNER JOIN attacks ON pokemons_attacks.attack_id=attacks.id WHERE pokemons_attacks.poke_id=?", newPokemon.ID)
 
 	if err != nil {
 		return
 	}
 
-	selectpoke.ImprimirPokemons(allPokes)
+	defer rows.Close()
 
-	idAux = len(allPokes) + 1
+	for rows.Next() {
 
-	fmt.Scan(&eleccionPoke)
+		var newAttack Attack
 
-	pokemonSelected, err := selectpoke.SeleccionarPokemons(databases, selectpoke.OnlyPokeFromRival, 0, eleccionPoke)
+		err = rows.Scan(&newAttack.ID, &newAttack.Name, &newAttack.Power, &newAttack.Accuracy)
 
-	if err != nil {
-		return
+		if err != nil {
+			return
+		}
+
+		newPokemon.Ataques = append(newPokemon.Ataques, newAttack)
 	}
 
-	newPokemon := pokemonSelected[0]
-
-	err = InsertarNuevoPoke(databases, newPokemon)
-
-	if err != nil {
-		return
-	}
-
-	err = InsertarRelacionNuevoPoke(databases, user, newPokemon, idAux)
-	if err != nil {
-		return
-	}
-
-	err = InsertarRelacionAtaques(databases, newPokemon.Ataques, idAux)
-
-	if err != nil {
-		return
-	}
-
-	fmt.Println("Ahora el sera tu nuevo amigo :D")
 	return
 }
 
 //InsertarNuevoPoke inserta un nuevo pokemon
-func InsertarNuevoPoke(databases *sql.DB, newPokemon selectpoke.Pokemon) (err error) {
+func InsertarNuevoPoke(databases *sql.DB, newPokemon Pokemon) (err error) {
 
 	stmt, err := databases.Prepare("INSERT INTO pokemons(name,life,type,level) VALUES (?,?,?,?)")
 
@@ -205,7 +343,7 @@ func InsertarNuevoPoke(databases *sql.DB, newPokemon selectpoke.Pokemon) (err er
 }
 
 //InsertarRelacionNuevoPoke inserta datos en la tabla pivote users_pokemons
-func InsertarRelacionNuevoPoke(databases *sql.DB, user selectpoke.User, newPokemon selectpoke.Pokemon, idAux int) (err error) {
+func InsertarRelacionNuevoPoke(databases *sql.DB, user User, newPokemon Pokemon, idAux int) (err error) {
 	stmt, err := databases.Prepare("INSERT INTO users_pokemons (user_id,poke_id) VALUES (?,?)")
 
 	if err != nil {
@@ -221,7 +359,7 @@ func InsertarRelacionNuevoPoke(databases *sql.DB, user selectpoke.User, newPokem
 }
 
 //InsertarRelacionAtaques inserta datos en la tabla pivote pokemons_attacks
-func InsertarRelacionAtaques(databases *sql.DB, attacks []selectpoke.Attack, idAux int) (err error) {
+func InsertarRelacionAtaques(databases *sql.DB, attacks []Attack, idAux int) (err error) {
 
 	for i := range attacks {
 
@@ -241,242 +379,50 @@ func InsertarRelacionAtaques(databases *sql.DB, attacks []selectpoke.Attack, idA
 	return
 }
 
-//LiberarPokemon libera un pokemon
-func LiberarPokemon(databases *sql.DB, user selectpoke.User) (err error) {
-
-	var pokeEliminar int
-
-	allPokes, err := selectpoke.SeleccionarPokemons(databases, selectpoke.AllUserPokemons, user.ID, 0)
-
-	if err != nil {
-		return
-	}
-
-	selectpoke.ImprimirPokemons(allPokes)
-
-	fmt.Println("Escribe el ID del pokemon que deseas eliminar")
-
-	fmt.Scan(&pokeEliminar)
-
-	sliceAux, err := selectpoke.SeleccionarPokemons(databases, selectpoke.OnlyPokeFromUser, user.ID, pokeEliminar)
-
-	if err != nil {
-		return
-	}
-
-	if len(sliceAux) == 0 {
-		fmt.Println("id no valido")
-		return
-	}
+//DeletePoke borra un pokemon
+func DeletePoke(databases *sql.DB, user User, sliceAux []Pokemon) (err error) {
 
 	for i := range sliceAux {
 
 		stmtDelete, err := databases.Prepare("DELETE FROM users_pokemons WHERE users_pokemons.poke_id = ?;")
 
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		_, err = stmtDelete.Exec(sliceAux[i].ID)
 
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 	}
-
-	fmt.Println("Hasta pronto amiguito :'D")
 	return
 }
 
-//EliminarCuenta te permite eliminar tu cuenta
-func EliminarCuenta(databases *sql.DB, user selectpoke.User, salir *bool) (err error) {
+//BorrarCuenta te permite eliminar tu cuenta
+func BorrarCuenta(databases *sql.DB, user User, salir *bool, preguntaSeguridad string) (check bool, err error) {
 
-	for {
-		var preguntaSeguridad1, preguntaSeguridad2 string
+	if preguntaSeguridad == user.Password {
 
-		fmt.Println("¿Esta seguro de eliminar su cuenta? [S/N]")
-		fmt.Scan(&preguntaSeguridad1)
+		stmtDelete, err := databases.Prepare("DELETE FROM users where id = ?")
 
-		preguntaSeguridad1 = strings.ToLower(preguntaSeguridad1)
-
-		switch preguntaSeguridad1 {
-		case "s":
-			fmt.Println("Introduzca su password")
-			fmt.Scan(&preguntaSeguridad2)
-
-			if preguntaSeguridad2 == user.Password {
-
-				stmtDelete, err := databases.Prepare("DELETE FROM users where id = ?")
-
-				if err != nil {
-					return err
-				}
-
-				_, err = stmtDelete.Exec(user.ID)
-
-				if err != nil {
-					return err
-				}
-
-				fmt.Println("Hasta Pronto :'D")
-				*salir = true
-				return err
-
-			}
-			err = ErrPasswordInvalid
-			return
-
-		case "n":
-			return
-
-		default:
-			fmt.Println("Opncion invalida")
-		}
-	}
-
-}
-
-//Jugar para JUGAR :D
-func Jugar(databases *sql.DB, user selectpoke.User) {
-
-	var idPokeJugador int
-	var turno bool
-
-	pokes, err := selectpoke.SeleccionarPokemons(databases, selectpoke.AllUserPokemons, user.ID, 0)
-
-	if err != nil {
-		return
-	}
-
-	selectpoke.ImprimirPokemons(pokes)
-
-	fmt.Println("Escribe el ID del Pokemon con el que quieras jugar")
-
-	fmt.Scan(&idPokeJugador)
-
-	sliceAux, err := selectpoke.SeleccionarPokemons(databases, selectpoke.OnlyPokeFromUser, user.ID, idPokeJugador)
-
-	if err != nil {
-		return
-	}
-
-	j1 := sliceAux[0]
-
-	time.Sleep(2 * time.Second)
-
-	fmt.Println("Tu oponente sera...")
-
-	time.Sleep(time.Second * 2)
-
-	posiblesRivales, err := selectpoke.SeleccionarPokemons(databases, selectpoke.AllPokemons, 0, 0)
-
-	if err != nil {
-		return
-	}
-
-	rand.Seed(time.Now().UnixNano())
-
-	idRival := rand.Intn(len(posiblesRivales) + 1)
-
-	pokeRival, err := selectpoke.SeleccionarPokemons(databases, selectpoke.OnlyPokeFromRival, 0, idRival+1)
-
-	if err != nil {
-		return
-	}
-
-	j2 := pokeRival[0]
-
-	fmt.Println(j2.Name)
-
-	time.Sleep(time.Second * 3)
-
-	t := 1
-
-	for {
-		var attack1 int
-
-		if turno == false {
-
-			fmt.Printf("Turno %v\n", t)
-			fmt.Println("Es tu turno")
-			MostrarVidas(j1, j2)
-			fmt.Println("Que ataque desar usar?")
-
-			MostrarAtaques(j1)
-
-			fmt.Scan(&attack1)
-			ataquej1 := attack1 - 1
-
-			if ataquej1 >= len(j1.Ataques) {
-
-				fmt.Println("Opcion invalida")
-				ataquej1 = -1
-
-			}
-
-			MostrarBatalla(&j1, &j2, ataquej1)
-
-		} else {
-
-			fmt.Printf("Turno %v\n", t)
-			fmt.Println("Es turno del rival")
-
-			ataquej2 := rand.Intn(len(j2.Ataques))
-
-			MostrarBatalla(&j2, &j1, ataquej2)
+		if err != nil {
+			return check, err
 		}
 
-		time.Sleep(time.Second * 3)
+		_, err = stmtDelete.Exec(user.ID)
 
-		t = t + 1
-
-		if j1.Life <= 0 || j2.Life <= 0 {
-			break
+		if err != nil {
+			return check, err
 		}
 
-		turno = !turno
-		fmt.Println()
-	}
-
-	if j1.Life <= 0 {
-
-		fmt.Println("Oh no, perdiste")
-
-	} else {
-
-		fmt.Println("Genial ganaste esta batalla")
+		*salir = true
+		check = true
+		return check, err
 
 	}
-}
+	err = ErrPasswordInvalid
+	return
 
-//MostrarVidas imprime la salud de ambos combatientes
-func MostrarVidas(j1 selectpoke.Pokemon, j2 selectpoke.Pokemon) {
-
-	fmt.Printf("Vida Actual: %v => %v	||	%v => %v\n", j1.Name, j1.Life, j2.Name, j2.Life)
-
-}
-
-//MostrarAtaques te muestra las opciones de ataques
-func MostrarAtaques(poke selectpoke.Pokemon) {
-
-	for i := range poke.Ataques {
-
-		fmt.Printf("%v.%v => %v\n", i+1, poke.Ataques[i].Name, poke.Ataques[i].Power)
-
-	}
-
-}
-
-//MostrarBatalla imprime lo sucedido en combate
-func MostrarBatalla(atacante *selectpoke.Pokemon, receptor *selectpoke.Pokemon, eleccion int) {
-
-	if eleccion == -1 {
-		fmt.Println("fallaste")
-	} else {
-
-		fmt.Printf("%v uso %v contra %v\n", atacante.Name, atacante.Ataques[eleccion].Name, receptor.Name)
-
-		receptor.Life = receptor.Life - atacante.Ataques[eleccion].Power
-	}
 }
