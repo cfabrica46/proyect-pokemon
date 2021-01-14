@@ -122,22 +122,26 @@ func Open() (databases *sql.DB, err error) {
 }
 
 //GetUser vericara si existe un user registrado con los parametros predefinidos
-func GetUser(databases *sql.DB, usernameScan, passwordScan string) (user User, err error) {
+func GetUser(databases *sql.DB, usernameScan, passwordScan string) (user *User, err error) {
+
+	var userAux User
 
 	row := databases.QueryRow("SELECT id,username,password FROM users WHERE username = ? AND password = ?", usernameScan, passwordScan)
 
-	err = row.Scan(&user.ID, &user.Username, &user.Password)
+	err = row.Scan(&userAux.ID, &userAux.Username, &userAux.Password)
 
 	if err != nil {
 		return
 	}
+
+	user = &userAux
 
 	return
 
 }
 
 //CheckRegistro verifica si ya existe un usuario registrado con el mismo username
-func CheckRegistro(databases *sql.DB, usernameScan, passwordScan string) (err error) {
+func CheckRegistro(databases *sql.DB, usernameScan, passwordScan string) (check bool, err error) {
 
 	var id int
 
@@ -145,16 +149,20 @@ func CheckRegistro(databases *sql.DB, usernameScan, passwordScan string) (err er
 
 	err = row.Scan(&id)
 
-	if err == nil {
-		err = ErrUserExist
+	if err != nil {
+		if err == sql.ErrNoRows {
+			check = true
+			err = nil
+			return
+		}
 		return
 	}
-	err = nil
+
 	return
 }
 
-//InsertRegistro inserta a la base de datos el nuevo usuario
-func InsertRegistro(databases *sql.DB, usernameScan, passwordScan string) (err error) {
+//InsertUser inserta a la base de datos el nuevo usuario
+func InsertUser(databases *sql.DB, usernameScan, passwordScan string) (err error) {
 
 	stmt, err := databases.Prepare("INSERT INTO users(username, password) VALUES(?,?)")
 
@@ -172,11 +180,11 @@ func InsertRegistro(databases *sql.DB, usernameScan, passwordScan string) (err e
 }
 
 //SeleccionarPokemons Selecciona los pokemons deseados
-func SeleccionarPokemons(databases *sql.DB, flag flag, idUser, idPoke int) (pokes []Pokemon, err error) {
+func SeleccionarPokemons(databases *sql.DB, f flag, idUser, idPoke int) (pokes []Pokemon, err error) {
 
 	var check bool
 
-	switch flag {
+	switch f {
 	case AllUserPokemons:
 
 		rows, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN users ON users_pokemons.user_id = users.id INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users.id = ?", idUser)
@@ -326,52 +334,39 @@ func SeleccionAtaques(databases *sql.DB, newPokemon *Pokemon) (err error) {
 }
 
 //InsertarNuevoPoke inserta un nuevo pokemon
-func InsertarNuevoPoke(databases *sql.DB, newPokemon Pokemon) (err error) {
+func InsertarNuevoPoke(tx *sql.Tx, newPokemon Pokemon) (err error) {
 
-	stmt, err := databases.Prepare("INSERT INTO pokemons(name,life,type,level) VALUES (?,?,?,?)")
+	_, err = tx.Exec("INSERT INTO pokemons(name,life,type,level) VALUES (?,?,?,?)", newPokemon.Name, newPokemon.Life, newPokemon.Tipo, newPokemon.Level)
 
 	if err != nil {
+		tx.Rollback()
 		return
 	}
 
-	_, err = stmt.Exec(newPokemon.Name, newPokemon.Life, newPokemon.Tipo, newPokemon.Level)
-
-	if err != nil {
-		return
-	}
 	return
 }
 
 //InsertarRelacionNuevoPoke inserta datos en la tabla pivote users_pokemons
-func InsertarRelacionNuevoPoke(databases *sql.DB, user User, newPokemon Pokemon, idAux int) (err error) {
-	stmt, err := databases.Prepare("INSERT INTO users_pokemons (user_id,poke_id) VALUES (?,?)")
+func InsertarRelacionNuevoPoke(tx *sql.Tx, user User, newPokemon Pokemon, idAux int) (err error) {
+	_, err = tx.Exec("INSERT INTO users_pokemons (user_id,poke_id) VALUES (?,?)", user.ID, idAux)
 
 	if err != nil {
+		tx.Rollback()
 		return
 	}
 
-	_, err = stmt.Exec(user.ID, idAux)
-
-	if err != nil {
-		return
-	}
 	return
 }
 
 //InsertarRelacionAtaques inserta datos en la tabla pivote pokemons_attacks
-func InsertarRelacionAtaques(databases *sql.DB, attacks []Attack, idAux int) (err error) {
+func InsertarRelacionAtaques(tx *sql.Tx, attacks []Attack, idAux int) (err error) {
 
 	for i := range attacks {
 
-		stmtAttack, err := databases.Prepare("INSERT INTO pokemons_attacks (poke_id,attack_id) VALUES (?,?)")
+		_, err = tx.Exec("INSERT INTO pokemons_attacks (poke_id,attack_id) VALUES (?,?)", idAux, attacks[i].ID)
 
 		if err != nil {
-			return err
-		}
-
-		_, err = stmtAttack.Exec(idAux, attacks[i].ID)
-
-		if err != nil {
+			tx.Rollback()
 			return err
 		}
 
@@ -401,9 +396,9 @@ func DeletePoke(databases *sql.DB, user User, sliceAux []Pokemon) (err error) {
 }
 
 //BorrarCuenta te permite eliminar tu cuenta
-func BorrarCuenta(databases *sql.DB, user User, salir *bool, preguntaSeguridad string) (check bool, err error) {
+func BorrarCuenta(databases *sql.DB, userID int, userPassword, preguntaSeguridad string) (check bool, err error) {
 
-	if preguntaSeguridad == user.Password {
+	if preguntaSeguridad == userPassword {
 
 		stmtDelete, err := databases.Prepare("DELETE FROM users where id = ?")
 
@@ -411,13 +406,12 @@ func BorrarCuenta(databases *sql.DB, user User, salir *bool, preguntaSeguridad s
 			return check, err
 		}
 
-		_, err = stmtDelete.Exec(user.ID)
+		_, err = stmtDelete.Exec(userID)
 
 		if err != nil {
 			return check, err
 		}
 
-		*salir = true
 		check = true
 		return check, err
 
