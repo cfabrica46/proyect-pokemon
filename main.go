@@ -48,11 +48,8 @@ func main() {
 		user, err := pokedatabases.GetUser(databases, usernameScan, passwordScan)
 
 		if err != nil {
-			if err == sql.ErrNoRows {
-				if user == nil {
-					log.Fatal(errUsernamePasswordIncorrect)
-				}
-				log.Fatal(err)
+			if err == sql.ErrNoRows && user == nil {
+				log.Fatal(errUsernamePasswordIncorrect)
 			}
 			log.Fatal(err)
 		}

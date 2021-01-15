@@ -10,11 +10,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type flag int
+type bandera int
 
 //Parte fundamental de la funcion SeleccionarPokemons
 const (
-	AllUserPokemons flag = iota
+	AllUserPokemons bandera = iota
 	OnlyPokeFromUser
 	OnlyPokeFromRival
 	AllPokemons
@@ -140,12 +140,12 @@ func GetUser(databases *sql.DB, usernameScan, passwordScan string) (user *User, 
 
 }
 
-//CheckRegistro verifica si ya existe un usuario registrado con el mismo username
-func CheckRegistro(databases *sql.DB, usernameScan, passwordScan string) (check bool, err error) {
+//CheckIfUserAlreadyExist verifica si ya existe un usuario registrado con el mismo username
+func CheckIfUserAlreadyExist(databases *sql.DB, usernameScan string) (check bool, err error) {
 
 	var id int
 
-	row := databases.QueryRow("SELECT id FROM users WHERE username = ? ", usernameScan, passwordScan)
+	row := databases.QueryRow("SELECT id FROM users WHERE username = ? ", usernameScan)
 
 	err = row.Scan(&id)
 
@@ -180,7 +180,7 @@ func InsertUser(databases *sql.DB, usernameScan, passwordScan string) (err error
 }
 
 //SeleccionarPokemons Selecciona los pokemons deseados
-func SeleccionarPokemons(databases *sql.DB, f flag, idUser, idPoke int) (pokes []Pokemon, err error) {
+func SeleccionarPokemons(databases *sql.DB, f bandera, idUser, idPoke int) (pokes []Pokemon, err error) {
 
 	var check bool
 
@@ -339,7 +339,6 @@ func InsertarNuevoPoke(tx *sql.Tx, newPokemon Pokemon) (err error) {
 	_, err = tx.Exec("INSERT INTO pokemons(name,life,type,level) VALUES (?,?,?,?)", newPokemon.Name, newPokemon.Life, newPokemon.Tipo, newPokemon.Level)
 
 	if err != nil {
-		tx.Rollback()
 		return
 	}
 
@@ -351,7 +350,6 @@ func InsertarRelacionNuevoPoke(tx *sql.Tx, user User, newPokemon Pokemon, idAux 
 	_, err = tx.Exec("INSERT INTO users_pokemons (user_id,poke_id) VALUES (?,?)", user.ID, idAux)
 
 	if err != nil {
-		tx.Rollback()
 		return
 	}
 
@@ -366,7 +364,6 @@ func InsertarRelacionAtaques(tx *sql.Tx, attacks []Attack, idAux int) (err error
 		_, err = tx.Exec("INSERT INTO pokemons_attacks (poke_id,attack_id) VALUES (?,?)", idAux, attacks[i].ID)
 
 		if err != nil {
-			tx.Rollback()
 			return err
 		}
 

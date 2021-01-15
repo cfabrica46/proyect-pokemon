@@ -60,17 +60,20 @@ func añadirPoke(databases *sql.DB, user pokedatabases.User) (err error) {
 	err = pokedatabases.InsertarNuevoPoke(tx, newPokemon)
 
 	if err != nil {
+		tx.Rollback()
 		return
 	}
 
 	err = pokedatabases.InsertarRelacionNuevoPoke(tx, user, newPokemon, idAux)
 	if err != nil {
+		tx.Rollback()
 		return
 	}
 
 	err = pokedatabases.InsertarRelacionAtaques(tx, newPokemon.Ataques, idAux)
 
 	if err != nil {
+		tx.Rollback()
 		return
 	}
 

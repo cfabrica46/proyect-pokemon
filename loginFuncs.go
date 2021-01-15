@@ -76,14 +76,15 @@ func registrar(databases *sql.DB) (user *pokedatabases.User, err error) {
 	fmt.Println("Ingrese su password")
 	fmt.Scan(&passwordScan)
 
-	check, err := pokedatabases.CheckRegistro(databases, usernameScan, passwordScan)
+	check, err := pokedatabases.CheckIfUserAlreadyExist(databases, usernameScan)
 
 	if err != nil {
 		return
 	}
 
 	if check == false {
-		return nil, pokedatabases.ErrUserExist
+		err = pokedatabases.ErrUserExist
+		return
 	}
 
 	err = pokedatabases.InsertUser(databases, usernameScan, passwordScan)
