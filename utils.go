@@ -49,7 +49,7 @@ func añadirPoke(databases *sql.DB, user pokedatabases.User) (err error) {
 		return
 	}
 
-	newPokemon := pokemonSelected[0]
+	newPokemon := pokemonSelected
 
 	tx, err := databases.Begin()
 
@@ -57,14 +57,14 @@ func añadirPoke(databases *sql.DB, user pokedatabases.User) (err error) {
 		return
 	}
 
-	err = pokedatabases.InsertarNuevoPoke(tx, newPokemon)
+	err = pokedatabases.InsertarNuevoPoke(tx, *newPokemon)
 
 	if err != nil {
 		tx.Rollback()
 		return
 	}
 
-	err = pokedatabases.InsertarRelacionNuevoPoke(tx, user, newPokemon, idAux)
+	err = pokedatabases.InsertarRelacionNuevoPoke(tx, user, *newPokemon, idAux)
 	if err != nil {
 		tx.Rollback()
 		return
@@ -89,9 +89,15 @@ func liberarPokemon(databases *sql.DB, user pokedatabases.User) (err error) {
 
 	var pokeEliminar int
 
-	allPokes, err := pokedatabases.GetPokemonsFromUser(databases, user.ID)
+	allPokes, err := pokedatabases.GetPokemonsWithUserID(databases, user.ID)
 
 	if err != nil {
+		return
+	}
+
+	if len(allPokes) == 0 {
+		err = pokedatabases.ErrNotPokemons
+
 		return
 	}
 
@@ -101,18 +107,18 @@ func liberarPokemon(databases *sql.DB, user pokedatabases.User) (err error) {
 
 	fmt.Scan(&pokeEliminar)
 
-	sliceAux, err := pokedatabases.GetPokemonWithIDAndUserID(databases, user.ID, pokeEliminar)
+	poke, err := pokedatabases.GetPokemonWithIDAndUserID(databases, pokeEliminar, user.ID)
 
 	if err != nil {
 		return
 	}
 
-	if len(sliceAux) == 0 {
+	if poke == nil {
 		fmt.Println("id no valido")
 		return
 	}
 
-	err = pokedatabases.DeletePoke(databases, user, sliceAux)
+	err = pokedatabases.DeletePoke(databases, user, *poke)
 
 	if err != nil {
 		return

@@ -28,12 +28,20 @@ func ingresar(databases *sql.DB, user pokedatabases.User) (err error) {
 
 		switch eleccionMenu {
 		case 1:
-			jugar(databases, user)
-		case 2:
-			pokes, err := pokedatabases.GetPokemonsFromUser(databases, user.ID)
+			err := jugar(databases, user)
 
 			if err != nil {
 				fmt.Println(err.Error())
+			}
+		case 2:
+			pokes, err := pokedatabases.GetPokemonsWithUserID(databases, user.ID)
+
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+
+			if len(pokes) == 0 {
+				fmt.Println(pokedatabases.ErrNotPokemons)
 			}
 
 			imprimirPokemons(pokes)

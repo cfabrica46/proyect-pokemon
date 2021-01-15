@@ -143,7 +143,6 @@ func CheckIfUserAlreadyExist(databases *sql.DB, usernameScan string) (check bool
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			check = false
 			err = nil
 			return
 		}
@@ -172,12 +171,10 @@ func InsertUser(databases *sql.DB, usernameScan, passwordScan string) (err error
 	return
 }
 
-//GetPokemonsFromUser da como retorno un slice de pokemon
-func GetPokemonsFromUser(databases *sql.DB, idUser int) (pokes []Pokemon, err error) {
+//GetPokemonsWithUserID da como retorno un slice de pokemon
+func GetPokemonsWithUserID(databases *sql.DB, id int) (pokes []Pokemon, err error) {
 
-	var check bool
-
-	rows, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN users ON users_pokemons.user_id = users.id INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users.id = ?", idUser)
+	rows, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN users ON users_pokemons.user_id = users.id INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users.id = ?", id)
 
 	if err != nil {
 		return pokes, err
@@ -202,19 +199,15 @@ func GetPokemonsFromUser(databases *sql.DB, idUser int) (pokes []Pokemon, err er
 
 		pokes = append(pokes, newPokemon)
 
-		check = true
 	}
 
-	if check == false {
-		err = ErrNotPokemons
-		return
-	}
 	return
 }
 
 //GetPokemonWithIDAndUserID como retorno un slice de pokemon
-func GetPokemonWithIDAndUserID(databases *sql.DB, idUser, idPoke int) (pokes []Pokemon, err error) {
-	var newPokemon Pokemon
+func GetPokemonWithIDAndUserID(databases *sql.DB, idPoke, idUser int) (poke *Pokemon, err error) {
+
+	var pokeAux Pokemon
 
 	row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users_pokemons.poke_id = ? AND users_pokemons.user_id = ?", idPoke, idUser)
 
@@ -222,47 +215,48 @@ func GetPokemonWithIDAndUserID(databases *sql.DB, idUser, idPoke int) (pokes []P
 		return
 	}
 
-	err = row.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+	err = row.Scan(&pokeAux.ID, &pokeAux.Name, &pokeAux.Life, &pokeAux.Tipo, &pokeAux.Level)
 
 	if err != nil {
-		err = ErrIncorrectID
+
 		return
 	}
 
-	err = PutAtaques(databases, &newPokemon)
+	err = PutAtaques(databases, &pokeAux)
 
 	if err != nil {
 		return
 	}
 
-	pokes = append(pokes, newPokemon)
+	poke = &pokeAux
 	return
 }
 
 //GetPokemonWithID como retorno un slice de pokemon
-func GetPokemonWithID(databases *sql.DB, idPoke int) (pokes []Pokemon, err error) {
+func GetPokemonWithID(databases *sql.DB, id int) (poke *Pokemon, err error) {
 
-	var newPokemon Pokemon
+	var pokeAux Pokemon
 
-	row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users_pokemons.poke_id = ?", idPoke)
-
-	if err != nil {
-		return
-	}
-
-	err = row.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+	row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM pokemons WHERE pokemons.id = ?", id)
 
 	if err != nil {
 		return
 	}
 
-	err = PutAtaques(databases, &newPokemon)
+	err = row.Scan(&pokeAux.ID, &pokeAux.Name, &pokeAux.Life, &pokeAux.Tipo, &pokeAux.Level)
 
 	if err != nil {
 		return
 	}
 
-	pokes = append(pokes, newPokemon)
+	err = PutAtaques(databases, &pokeAux)
+
+	if err != nil {
+		return
+	}
+
+	poke = &pokeAux
+
 	return
 }
 
@@ -365,23 +359,20 @@ func InsertarRelacionAtaques(tx *sql.Tx, attacks []Attack, idAux int) (err error
 }
 
 //DeletePoke borra un pokemon
-func DeletePoke(databases *sql.DB, user User, sliceAux []Pokemon) (err error) {
+func DeletePoke(databases *sql.DB, user User, poke Pokemon) (err error) {
 
-	for i := range sliceAux {
+	stmtDelete, err := databases.Prepare("DELETE FROM users_pokemons WHERE users_pokemons.poke_id = ?;")
 
-		stmtDelete, err := databases.Prepare("DELETE FROM users_pokemons WHERE users_pokemons.poke_id = ?;")
-
-		if err != nil {
-			return err
-		}
-
-		_, err = stmtDelete.Exec(sliceAux[i].ID)
-
-		if err != nil {
-			return err
-		}
-
+	if err != nil {
+		return err
 	}
+
+	_, err = stmtDelete.Exec(poke.ID)
+
+	if err != nil {
+		return err
+	}
+
 	return
 }
 

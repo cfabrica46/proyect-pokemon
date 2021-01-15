@@ -9,14 +9,19 @@ import (
 	"github.com/cfabrica46/proyecto-pokemon/pokedatabases"
 )
 
-func jugar(databases *sql.DB, user pokedatabases.User) {
+func jugar(databases *sql.DB, user pokedatabases.User) (err error) {
 
 	var idPokeJugador int
 	var turno bool
 
-	pokes, err := pokedatabases.GetPokemonsFromUser(databases, user.ID)
+	pokes, err := pokedatabases.GetPokemonsWithUserID(databases, user.ID)
 
 	if err != nil {
+		return
+	}
+	if len(pokes) == 0 {
+		err = pokedatabases.ErrNotPokemons
+
 		return
 	}
 
@@ -26,13 +31,13 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 
 	fmt.Scan(&idPokeJugador)
 
-	sliceAux, err := pokedatabases.GetPokemonWithIDAndUserID(databases, user.ID, idPokeJugador)
+	sliceAux, err := pokedatabases.GetPokemonWithIDAndUserID(databases, idPokeJugador, user.ID)
 
 	if err != nil {
 		return
 	}
 
-	j1 := sliceAux[0]
+	j1 := sliceAux
 
 	time.Sleep(2 * time.Second)
 
@@ -56,7 +61,7 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 		return
 	}
 
-	j2 := pokeRival[0]
+	j2 := pokeRival
 
 	fmt.Println(j2.Name)
 
@@ -71,10 +76,10 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 
 			fmt.Printf("Turno %v\n", t)
 			fmt.Println("Es tu turno")
-			mostrarVidas(j1, j2)
+			mostrarVidas(*j1, *j2)
 			fmt.Println("Que ataque desar usar?")
 
-			mostrarAtaques(j1)
+			mostrarAtaques(*j1)
 
 			fmt.Scan(&attack1)
 			ataquej1 := attack1 - 1
@@ -86,7 +91,7 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 
 			}
 
-			mostrarBatalla(&j1, &j2, ataquej1)
+			mostrarBatalla(j1, j2, ataquej1)
 
 		} else {
 
@@ -95,7 +100,7 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 
 			ataquej2 := rand.Intn(len(j2.Ataques))
 
-			mostrarBatalla(&j2, &j1, ataquej2)
+			mostrarBatalla(j2, j1, ataquej2)
 		}
 
 		time.Sleep(time.Second * 3)
@@ -119,6 +124,7 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 		fmt.Println("Genial ganaste esta batalla")
 
 	}
+	return
 }
 
 func mostrarVidas(j1 pokedatabases.Pokemon, j2 pokedatabases.Pokemon) {
