@@ -82,7 +82,7 @@ func registrar(databases *sql.DB) (user *pokedatabases.User, err error) {
 		return
 	}
 
-	if check == false {
+	if check == true {
 		err = pokedatabases.ErrUserExist
 		return
 	}

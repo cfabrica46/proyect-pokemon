@@ -143,13 +143,14 @@ func CheckIfUserAlreadyExist(databases *sql.DB, usernameScan string) (check bool
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			check = true
+			check = false
 			err = nil
 			return
 		}
+		check = true
 		return
 	}
-
+	check = true
 	return
 }
 
@@ -211,8 +212,8 @@ func GetPokemonsFromUser(databases *sql.DB, idUser int) (pokes []Pokemon, err er
 	return
 }
 
-//GetPokemonWithUserIDAndPokeID como retorno un slice de pokemon
-func GetPokemonWithUserIDAndPokeID(databases *sql.DB, idUser, idPoke int) (pokes []Pokemon, err error) {
+//GetPokemonWithIDAndUserID como retorno un slice de pokemon
+func GetPokemonWithIDAndUserID(databases *sql.DB, idUser, idPoke int) (pokes []Pokemon, err error) {
 	var newPokemon Pokemon
 
 	row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users_pokemons.poke_id = ? AND users_pokemons.user_id = ?", idPoke, idUser)
@@ -238,8 +239,8 @@ func GetPokemonWithUserIDAndPokeID(databases *sql.DB, idUser, idPoke int) (pokes
 	return
 }
 
-//GetPokemonWithPokeID como retorno un slice de pokemon
-func GetPokemonWithPokeID(databases *sql.DB, idPoke int) (pokes []Pokemon, err error) {
+//GetPokemonWithID como retorno un slice de pokemon
+func GetPokemonWithID(databases *sql.DB, idPoke int) (pokes []Pokemon, err error) {
 
 	var newPokemon Pokemon
 

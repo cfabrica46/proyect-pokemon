@@ -43,7 +43,7 @@ func añadirPoke(databases *sql.DB, user pokedatabases.User) (err error) {
 
 	fmt.Scan(&eleccionPoke)
 
-	pokemonSelected, err := pokedatabases.GetPokemonWithPokeID(databases, eleccionPoke)
+	pokemonSelected, err := pokedatabases.GetPokemonWithID(databases, eleccionPoke)
 
 	if err != nil {
 		return
@@ -101,7 +101,7 @@ func liberarPokemon(databases *sql.DB, user pokedatabases.User) (err error) {
 
 	fmt.Scan(&pokeEliminar)
 
-	sliceAux, err := pokedatabases.GetPokemonWithUserIDAndPokeID(databases, user.ID, pokeEliminar)
+	sliceAux, err := pokedatabases.GetPokemonWithIDAndUserID(databases, user.ID, pokeEliminar)
 
 	if err != nil {
 		return
