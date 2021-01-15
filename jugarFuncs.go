@@ -14,7 +14,7 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 	var idPokeJugador int
 	var turno bool
 
-	pokes, err := pokedatabases.SeleccionarPokemons(databases, pokedatabases.AllUserPokemons, user.ID, 0)
+	pokes, err := pokedatabases.GetPokemonsFromUser(databases, user.ID)
 
 	if err != nil {
 		return
@@ -26,7 +26,7 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 
 	fmt.Scan(&idPokeJugador)
 
-	sliceAux, err := pokedatabases.SeleccionarPokemons(databases, pokedatabases.OnlyPokeFromUser, user.ID, idPokeJugador)
+	sliceAux, err := pokedatabases.GetPokemonWithUserIDAndPokeID(databases, user.ID, idPokeJugador)
 
 	if err != nil {
 		return
@@ -40,7 +40,7 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 
 	time.Sleep(time.Second * 2)
 
-	posiblesRivales, err := pokedatabases.SeleccionarPokemons(databases, pokedatabases.AllPokemons, 0, 0)
+	posiblesRivales, err := pokedatabases.GetAllPokemons(databases)
 
 	if err != nil {
 		return
@@ -50,7 +50,7 @@ func jugar(databases *sql.DB, user pokedatabases.User) {
 
 	idRival := rand.Intn(len(posiblesRivales) + 1)
 
-	pokeRival, err := pokedatabases.SeleccionarPokemons(databases, pokedatabases.OnlyPokeFromRival, 0, idRival+1)
+	pokeRival, err := pokedatabases.GetPokemonWithPokeID(databases, idRival+1)
 
 	if err != nil {
 		return

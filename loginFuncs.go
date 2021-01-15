@@ -30,7 +30,7 @@ func ingresar(databases *sql.DB, user pokedatabases.User) (err error) {
 		case 1:
 			jugar(databases, user)
 		case 2:
-			pokes, err := pokedatabases.SeleccionarPokemons(databases, pokedatabases.AllUserPokemons, user.ID, 0)
+			pokes, err := pokedatabases.GetPokemonsFromUser(databases, user.ID)
 
 			if err != nil {
 				fmt.Println(err.Error())

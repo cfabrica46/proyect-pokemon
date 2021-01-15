@@ -12,14 +12,6 @@ import (
 
 type bandera int
 
-//Parte fundamental de la funcion SeleccionarPokemons
-const (
-	AllUserPokemons bandera = iota
-	OnlyPokeFromUser
-	OnlyPokeFromRival
-	AllPokemons
-)
-
 //Estos errores seran utilizados a lo largo del paquete
 var (
 	ErrNotPokemons     = errors.New("No tiene pokemons para acceder")
@@ -179,135 +171,135 @@ func InsertUser(databases *sql.DB, usernameScan, passwordScan string) (err error
 	return
 }
 
-//SeleccionarPokemons Selecciona los pokemons deseados
-func SeleccionarPokemons(databases *sql.DB, f bandera, idUser, idPoke int) (pokes []Pokemon, err error) {
+//GetPokemonsFromUser da como retorno un slice de pokemon
+func GetPokemonsFromUser(databases *sql.DB, idUser int) (pokes []Pokemon, err error) {
 
 	var check bool
 
-	switch f {
-	case AllUserPokemons:
+	rows, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN users ON users_pokemons.user_id = users.id INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users.id = ?", idUser)
 
-		rows, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN users ON users_pokemons.user_id = users.id INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users.id = ?", idUser)
-
-		if err != nil {
-			return pokes, err
-		}
-
-		defer rows.Close()
-
-		for rows.Next() {
-			var newPokemon Pokemon
-
-			err = rows.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
-
-			if err != nil {
-				return pokes, err
-			}
-
-			err = SeleccionAtaques(databases, &newPokemon)
-
-			if err != nil {
-				return pokes, err
-			}
-
-			pokes = append(pokes, newPokemon)
-
-			check = true
-
-		}
-
-		if check == false {
-			err = ErrNotPokemons
-			return pokes, err
-		}
-
-	case OnlyPokeFromUser:
-
-		var newPokemon Pokemon
-
-		row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users_pokemons.poke_id = ? AND users_pokemons.user_id = ?", idPoke, idUser)
-
-		if err != nil {
-			return
-		}
-
-		err = row.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
-
-		if err != nil {
-			err = ErrIncorrectID
-			return
-		}
-
-		err = SeleccionAtaques(databases, &newPokemon)
-
-		if err != nil {
-			return
-		}
-
-		pokes = append(pokes, newPokemon)
-
-	case OnlyPokeFromRival:
-
-		var newPokemon Pokemon
-
-		row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users_pokemons.poke_id = ?", idPoke)
-
-		if err != nil {
-			return
-		}
-
-		err = row.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
-
-		if err != nil {
-			return
-		}
-
-		err = SeleccionAtaques(databases, &newPokemon)
-
-		if err != nil {
-			return
-		}
-
-		pokes = append(pokes, newPokemon)
-
-	case AllPokemons:
-
-		rows, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM pokemons")
-
-		if err != nil {
-			return pokes, err
-		}
-
-		defer rows.Close()
-
-		for rows.Next() {
-			var newPokemon Pokemon
-
-			err = rows.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
-
-			if err != nil {
-				return pokes, err
-			}
-
-			err = SeleccionAtaques(databases, &newPokemon)
-
-			if err != nil {
-				return pokes, err
-			}
-
-			pokes = append(pokes, newPokemon)
-
-			check = true
-
-		}
-
+	if err != nil {
+		return pokes, err
 	}
 
+	defer rows.Close()
+
+	for rows.Next() {
+		var newPokemon Pokemon
+
+		err = rows.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+
+		if err != nil {
+			return
+		}
+
+		err = PutAtaques(databases, &newPokemon)
+
+		if err != nil {
+			return
+		}
+
+		pokes = append(pokes, newPokemon)
+
+		check = true
+	}
+
+	if check == false {
+		err = ErrNotPokemons
+		return
+	}
 	return
 }
 
-//SeleccionAtaques complementa a SelecionarPokemons dandole los ataques
-func SeleccionAtaques(databases *sql.DB, newPokemon *Pokemon) (err error) {
+//GetPokemonWithUserIDAndPokeID como retorno un slice de pokemon
+func GetPokemonWithUserIDAndPokeID(databases *sql.DB, idUser, idPoke int) (pokes []Pokemon, err error) {
+	var newPokemon Pokemon
+
+	row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users_pokemons.poke_id = ? AND users_pokemons.user_id = ?", idPoke, idUser)
+
+	if err != nil {
+		return
+	}
+
+	err = row.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+
+	if err != nil {
+		err = ErrIncorrectID
+		return
+	}
+
+	err = PutAtaques(databases, &newPokemon)
+
+	if err != nil {
+		return
+	}
+
+	pokes = append(pokes, newPokemon)
+	return
+}
+
+//GetPokemonWithPokeID como retorno un slice de pokemon
+func GetPokemonWithPokeID(databases *sql.DB, idPoke int) (pokes []Pokemon, err error) {
+
+	var newPokemon Pokemon
+
+	row := databases.QueryRow("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM users_pokemons INNER JOIN pokemons ON users_pokemons.poke_id = pokemons.id WHERE users_pokemons.poke_id = ?", idPoke)
+
+	if err != nil {
+		return
+	}
+
+	err = row.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+
+	if err != nil {
+		return
+	}
+
+	err = PutAtaques(databases, &newPokemon)
+
+	if err != nil {
+		return
+	}
+
+	pokes = append(pokes, newPokemon)
+	return
+}
+
+//GetAllPokemons como retorno un slice de pokemon
+func GetAllPokemons(databases *sql.DB) (pokes []Pokemon, err error) {
+
+	rows, err := databases.Query("SELECT DISTINCT pokemons.id,pokemons.name,pokemons.life,pokemons.type,pokemons.level FROM pokemons")
+
+	if err != nil {
+		return pokes, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var newPokemon Pokemon
+
+		err = rows.Scan(&newPokemon.ID, &newPokemon.Name, &newPokemon.Life, &newPokemon.Tipo, &newPokemon.Level)
+
+		if err != nil {
+			return pokes, err
+		}
+
+		err = PutAtaques(databases, &newPokemon)
+
+		if err != nil {
+			return pokes, err
+		}
+
+		pokes = append(pokes, newPokemon)
+
+	}
+	return
+
+}
+
+//PutAtaques complementa a SelecionarPokemons dandole los ataques
+func PutAtaques(databases *sql.DB, newPokemon *Pokemon) (err error) {
 
 	rows, err := databases.Query("SELECT DISTINCT attacks.id,attacks.name,attacks.power,attacks.accuracy FROM pokemons_attacks INNER JOIN attacks ON pokemons_attacks.attack_id=attacks.id WHERE pokemons_attacks.poke_id=?", newPokemon.ID)
 
